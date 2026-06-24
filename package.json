@@ -1,0 +1,13 @@
+{
+  "name": "fleet-dashboard",
+  "version": "1.0.0",
+  "description": "Fleet telematics dashboard builder",
+  "main": "build.js",
+  "scripts": {
+    "start": "node build.js menengai --watch --serve",
+    "build": "node build.js menengai"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
