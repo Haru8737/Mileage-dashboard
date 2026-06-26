@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataSphere — Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:       #0d0f14;
+  --surface:  #151820;
+  --surface2: #1c2030;
+  --surface3: #222840;
+  --border:   #252a3a;
+  --accent:   #2ef0b8;
+  --accent2:  #1bc49a;
+  --danger:   #ef4444;
+  --warning:  #f59e0b;
+  --text:     #e2e8f0;
+  --text2:    #94a3b8;
+  --text3:    #4b5563;
+  --font:     'Syne', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --radius:   10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+
+/* ── LOGIN ── */
+#login-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 48px; width: 380px; text-align: center;
+}
+.login-logo {
+  width: 52px; height: 52px; background: linear-gradient(135deg, var(--accent), #06b6d4);
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; color: #0d0f14; margin: 0 auto 20px;
+}
+.login-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.login-sub { font-size: 12px; color: var(--text2); margin-bottom: 32px; font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; }
+.login-input {
+  width: 100%; padding: 12px 16px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: var(--mono); font-size: 14px;
+  margin-bottom: 12px; outline: none; transition: border 0.15s;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-btn {
+  width: 100%; padding: 12px; background: var(--accent); border: none;
+  border-radius: var(--radius); color: #0d0f14; font-family: var(--font);
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s;
+}
+.login-btn:hover { background: var(--accent2); }
+.login-error { color: var(--danger); font-size: 12px; margin-top: 8px; font-family: var(--mono); display: none; }
+
+/* ── SHELL ── */
+#app { display: none; min-height: 100vh; }
+
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+  height: 60px; position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), #06b6d4);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #0d0f14;
+}
+.logo-name { font-size: 16px; font-weight: 800; }
+.logo-badge {
+  font-size: 10px; color: var(--accent); background: rgba(46,240,184,0.1);
+  border: 1px solid rgba(46,240,184,0.3); border-radius: 4px;
+  padding: 2px 6px; font-family: var(--mono); letter-spacing: 1px;
+}
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-user { font-size: 12px; color: var(--text2); font-family: var(--mono); }
+.btn-logout {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); cursor: pointer;
+  font-size: 12px; font-family: var(--font); transition: all 0.15s;
+}
+.btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ── NAV TABS ── */
+.tab-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; gap: 4px;
+}
+.tab {
+  padding: 14px 20px; border: none; background: transparent;
+  color: var(--text2); cursor: pointer; font-family: var(--font);
+  font-size: 13px; font-weight: 600; border-bottom: 2px solid transparent;
+  transition: all 0.15s; display: flex; align-items: center; gap: 8px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-icon { font-size: 15px; }
+
+/* ── MAIN ── */
+.main { padding: 32px 24px; max-width: 1100px; margin: 0 auto; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-header { margin-bottom: 28px; }
+.page-title { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--text2); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.card-title { font-size: 15px; font-weight: 700; }
+.card-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+/* ── FORM ELEMENTS ── */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; }
+.input {
+  width: 100%; padding: 10px 14px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--mono); font-size: 13px;
+  outline: none; transition: border 0.15s;
+}
+.input:focus { border-color: var(--accent); }
+.input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.input-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2); cursor: pointer;
+  font-size: 13px; font-family: var(--font); font-weight: 600;
+  transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--accent); color: var(--text); }
+.btn-primary {
+  background: var(--accent); border-color: var(--accent);
+  color: #0d0f14; font-weight: 700;
+}
+.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); color: #0d0f14; }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ── TOGGLE ── */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { font-size: 13px; }
+.toggle-sub { font-size: 11px; color: var(--text2); margin-top: 2px; font-family: var(--mono); }
+.toggle {
+  width: 40px; height: 22px; background: var(--surface3); border-radius: 11px;
+  position: relative; cursor: pointer; transition: background 0.2s; border: none;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  background: #fff; border-radius: 50%; top: 3px; left: 3px;
+  transition: left 0.2s;
+}
+.toggle.on::after { left: 21px; }
+
+/* ── CLIENT LIST ── */
+.client-item {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px; background: var(--surface2); border-radius: 8px;
+  margin-bottom: 8px; border: 1px solid var(--border);
+}
+.client-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.client-info { flex: 1; }
+.client-name { font-weight: 700; font-size: 14px; }
+.client-meta { font-size: 11px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+.client-actions { display: flex; gap: 8px; }
+.status-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 4px; font-family: var(--mono);
+  letter-spacing: 0.5px; font-weight: 600;
+}
+.status-active { background: rgba(46,240,184,0.1); color: var(--accent); border: 1px solid rgba(46,240,184,0.3); }
+.status-inactive { background: rgba(75,85,99,0.2); color: var(--text3); border: 1px solid var(--border); }
+
+/* ── CATEGORY LIST ── */
+.cat-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: var(--surface2); border-radius: 8px;
+  margin-bottom: 6px; border: 1px solid var(--border);
+}
+.cat-colour {
+  width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.1);
+}
+.cat-name { flex: 1; font-weight: 600; font-size: 13px; font-family: var(--mono); }
+.cat-label-input {
+  background: var(--surface3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  padding: 5px 10px; width: 140px; outline: none;
+}
+.cat-label-input:focus { border-color: var(--accent); }
+.colour-input { width: 36px; height: 28px; border: none; border-radius: 6px; cursor: pointer; background: none; padding: 0; }
+
+/* ── ANOMALY SETTINGS ── */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-info { flex: 1; }
+.setting-name { font-size: 13px; font-weight: 600; }
+.setting-desc { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.number-input {
+  width: 80px; padding: 8px 12px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--accent); font-family: var(--mono); font-size: 15px;
+  font-weight: 700; text-align: center; outline: none;
+}
+.number-input:focus { border-color: var(--accent); }
+
+/* ── SAVE BAR ── */
+.save-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+  transform: translateY(100%); transition: transform 0.25s;
+}
+.save-bar.visible { transform: translateY(0); }
+.save-msg { font-size: 13px; color: var(--text2); }
+.save-msg span { color: var(--warning); font-family: var(--mono); }
+.save-actions { display: flex; gap: 10px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; top: 80px; right: 24px; padding: 12px 20px;
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius); font-size: 13px; font-family: var(--mono);
+  color: var(--accent); opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  z-index: 999;
+}
+.toast.show { opacity: 1; }
+
+/* ── ADD CLIENT MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 32px; width: 520px; max-width: 90vw;
+}
+.modal-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.modal-sub { font-size: 12px; color: var(--text2); margin-bottom: 24px; font-family: var(--mono); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+/* ── BUILD SECTION ── */
+.build-terminal {
+  background: #0a0c10; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; font-family: var(--mono); font-size: 12px; color: #4ade80;
+  min-height: 200px; margin-top: 16px; white-space: pre-wrap; line-height: 1.7;
+}
+.build-client-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; background: var(--surface2); border-radius: 8px;
+  margin-bottom: 8px; border: 1px solid var(--border);
+}
+.build-client-name { font-weight: 700; }
+.build-client-meta { font-size: 11px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+
+/* ── PLATFORM SECTION ── */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; text-align: center;
+}
+.stat-value { font-size: 28px; font-weight: 800; color: var(--accent); font-family: var(--mono); }
+.stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+.divider { height: 1px; background: var(--border); margin: 24px 0; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">DS</div>
+    <div class="login-title">DataSphere Admin</div>
+    <div class="login-sub">Operator Access Only</div>
+    <input type="password" class="login-input" id="pwd-input" placeholder="Enter admin password" autocomplete="off">
+    <button class="login-btn" onclick="attemptLogin()">Unlock Panel</button>
+    <div class="login-error" id="login-error">Incorrect password</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">DS</div>
+      <div>
+        <div class="logo-name">DataSphere</div>
+      </div>
+      <div class="logo-badge">ADMIN</div>
+    </div>
+    <div class="header-right">
+      <div class="header-user" id="header-platform-name">Fleet Analytics Platform</div>
+      <button class="btn-logout" onclick="logout()">Lock Panel</button>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('overview')" id="tab-overview">
+      <span class="tab-icon">📊</span> Overview
+    </button>
+    <button class="tab" onclick="switchTab('clients')" id="tab-clients">
+      <span class="tab-icon">🏢</span> Clients
+    </button>
+    <button class="tab" onclick="switchTab('categories')" id="tab-categories">
+      <span class="tab-icon">🏷️</span> Categories
+    </button>
+    <button class="tab" onclick="switchTab('anomalies')" id="tab-anomalies">
+      <span class="tab-icon">⚠️</span> Anomaly Rules
+    </button>
+    <button class="tab" onclick="switchTab('settings')" id="tab-settings">
+      <span class="tab-icon">⚙️</span> Build Settings
+    </button>
+  </div>
+
+  <div class="main">
+
+    <!-- OVERVIEW -->
+    <div class="section active" id="section-overview">
+      <div class="page-header">
+        <div class="page-title">Platform Overview</div>
+        <div class="page-sub">Current state of your fleet analytics platform</div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-clients">0</div>
+          <div class="stat-label">Active Clients</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-categories">0</div>
+          <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-version">—</div>
+          <div class="stat-label">Platform Version</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Active Clients</div>
+            <div class="card-sub">All clients currently configured in the platform</div>
+          </div>
+        </div>
+        <div id="overview-clients"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Config File</div>
+            <div class="card-sub">Export your current config.json to save changes</div>
+          </div>
+          <button class="btn btn-primary" onclick="exportConfig()">⬇ Export config.json</button>
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7;">
+          After exporting, drop <span style="color:var(--accent);font-family:var(--mono)">config.json</span> into your project root folder, then run <span style="color:var(--accent);font-family:var(--mono)">node build.js &lt;client&gt;</span> to rebuild the dashboard with the new settings.
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="section" id="section-clients">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div>
+          <div class="page-title">Clients</div>
+          <div class="page-sub">Manage all client dashboards from here</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddClient()">+ Add Client</button>
+      </div>
+      <div id="clients-list"></div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="section" id="section-categories">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div>
+          <div class="page-title">Categories</div>
+          <div class="page-sub">Control how vehicle categories appear across all dashboards</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddCategory()">+ Add Category</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Category Configuration</div>
+            <div class="card-sub">Changes apply on next rebuild</div>
+          </div>
+        </div>
+        <div id="categories-list"></div>
+      </div>
+    </div>
+
+    <!-- ANOMALY RULES -->
+    <div class="section" id="section-anomalies">
+      <div class="page-header">
+        <div class="page-title">Anomaly Rules</div>
+        <div class="page-sub">Thresholds that trigger anomaly flags in the dashboard</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Detection Thresholds</div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Idle Streak Threshold</div>
+            <div class="setting-desc">Flag a vehicle after this many consecutive months with zero km</div>
+          </div>
+          <input type="number" class="number-input" id="idle-streak" min="1" max="12" onchange="markDirty()">
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Category Drop Alert</div>
+            <div class="setting-desc">Flag a category when monthly km drops by more than this percentage</div>
+          </div>
+          <input type="number" class="number-input" id="cat-drop" min="5" max="80" onchange="markDirty()">
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Newly Idle Detection</div>
+            <div class="setting-desc">Flag vehicles that were active last month but idle this month</div>
+          </div>
+          <button class="toggle" id="toggle-newly-idle" onclick="toggleNewlyIdle()"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUILD SETTINGS -->
+    <div class="section" id="section-settings">
+      <div class="page-header">
+        <div class="page-title">Build Settings</div>
+        <div class="page-sub">File naming and path configuration for the build pipeline</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Platform Identity</div></div>
+        <div class="input-row">
+          <div class="field">
+            <label>Platform Name</label>
+            <input type="text" class="input" id="platform-name" onchange="markDirty()">
+          </div>
+          <div class="field">
+            <label>Platform Version</label>
+            <input type="text" class="input" id="platform-version" onchange="markDirty()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Admin Password</label>
+          <input type="password" class="input" id="admin-password" placeholder="Leave blank to keep current" onchange="markDirty()">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">File Conventions</div></div>
+        <div class="input-row">
+          <div class="field">
+            <label>Summary File Prefix</label>
+            <input type="text" class="input" id="summary-prefix" onchange="markDirty()">
+          </div>
+          <div class="field">
+            <label>Trip File Prefix</label>
+            <input type="text" class="input" id="trip-prefix" onchange="markDirty()">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="field">
+            <label>Output Directory</label>
+            <input type="text" class="input" id="output-dir" onchange="markDirty()">
+          </div>
+          <div class="field">
+            <label>Dashboard Title</label>
+            <input type="text" class="input" id="dashboard-title" onchange="markDirty()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- SAVE BAR -->
+<div class="save-bar" id="save-bar">
+  <div class="save-msg">You have <span>unsaved changes</span> — export config.json to apply them</div>
+  <div class="save-actions">
+    <button class="btn" onclick="discardChanges()">Discard</button>
+    <button class="btn btn-primary" onclick="exportConfig()">⬇ Export config.json</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ADD CLIENT MODAL -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal">
+    <div class="modal-title" id="modal-client-title">Add New Client</div>
+    <div class="modal-sub">Each client gets their own folder and deployed dashboard</div>
+    <div class="input-row">
+      <div class="field">
+        <label>Client ID <span style="color:var(--text3)">(folder name)</span></label>
+        <input type="text" class="input" id="client-id" placeholder="e.g. nakuru" onchange="markDirty()">
+      </div>
+      <div class="field">
+        <label>Display Name</label>
+        <input type="text" class="input" id="client-display" placeholder="e.g. Nakuru Industries" onchange="markDirty()">
+      </div>
+    </div>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" class="input" id="client-fullname" placeholder="e.g. Nakuru Industries Ltd" onchange="markDirty()">
+    </div>
+    <div class="input-row">
+      <div class="field">
+        <label>Accent Colour</label>
+        <input type="color" class="input" id="client-colour" value="#3b82f6" onchange="markDirty()">
+      </div>
+      <div class="field">
+        <label>Vercel URL</label>
+        <input type="text" class="input" id="client-url" placeholder="https://..." onchange="markDirty()">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-client')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal-overlay" id="modal-category">
+  <div class="modal">
+    <div class="modal-title">Add New Category</div>
+    <div class="modal-sub">New categories are picked up automatically on rebuild</div>
+    <div class="input-row">
+      <div class="field">
+        <label>Category ID <span style="color:var(--text3)">(matches Excel data)</span></label>
+        <input type="text" class="input" id="new-cat-id" placeholder="e.g. SECURITY" onchange="markDirty()">
+      </div>
+      <div class="field">
+        <label>Display Label</label>
+        <input type="text" class="input" id="new-cat-label" placeholder="e.g. Security" onchange="markDirty()">
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="field">
+        <label>Colour</label>
+        <input type="color" class="input" id="new-cat-colour" value="#3b82f6" onchange="markDirty()">
+      </div>
+      <div class="field">
+        <label>Visible in Dashboard</label>
+        <select class="input" id="new-cat-visible" onchange="markDirty()">
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-category')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Add Category</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let CONFIG = null;
+let ORIGINAL = null;
+let isDirty = false;
+let editingClientIdx = -1;
+
+// ── LOGIN ──
+function attemptLogin() {
+  const pwd = document.getElementById('pwd-input').value;
+  if (!CONFIG) { showError('Config not loaded'); return; }
+  if (pwd === CONFIG.platform.admin_password) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAll();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('pwd-input').value = '';
+  }
+}
+
+document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') attemptLogin();
+});
+
+function logout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pwd-input').value = '';
+}
+
+function showError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── LOAD CONFIG ──
+async function loadConfig() {
+  try {
+    const res = await fetch('config.json?t=' + Date.now());
+    if (!res.ok) throw new Error('not found');
+    CONFIG = await res.json();
+    ORIGINAL = JSON.stringify(CONFIG);
+  } catch(e) {
+    // Config not found — show instructions
+    document.getElementById('login-screen').innerHTML = `
+      <div class="login-card">
+        <div class="login-logo">DS</div>
+        <div class="login-title">Config Not Found</div>
+        <div class="login-sub" style="margin-bottom:16px">Place config.json in the same folder as admin.html</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;text-align:left;background:var(--surface2);padding:16px;border-radius:8px;font-family:var(--mono)">
+          project/<br>
+          ├── <span style="color:var(--accent)">admin.html</span><br>
+          ├── <span style="color:var(--accent)">config.json</span> ← missing<br>
+          ├── build.js<br>
+          └── template/
+        </div>
+      </div>`;
+  }
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('section-' + tab).classList.add('active');
+}
+
+// ── RENDER ALL ──
+function renderAll() {
+  renderOverview();
+  renderClients();
+  renderCategories();
+  renderAnomalies();
+  renderSettings();
+}
+
+function renderOverview() {
+  const active = CONFIG.clients.filter(c => c.active).length;
+  document.getElementById('stat-clients').textContent = active;
+  document.getElementById('stat-categories').textContent = CONFIG.categories.filter(c => c.visible).length;
+  document.getElementById('stat-version').textContent = CONFIG.platform.version;
+  document.getElementById('header-platform-name').textContent = CONFIG.platform.name;
+
+  const el = document.getElementById('overview-clients');
+  el.innerHTML = CONFIG.clients.map(c => `
+    <div class="client-item">
+      <div class="client-dot" style="background:${c.accent_colour}"></div>
+      <div class="client-info">
+        <div class="client-name">${c.display_name}</div>
+        <div class="client-meta">${c.folder} · ${c.vercel_url || 'No URL set'}</div>
+      </div>
+      <span class="status-badge ${c.active ? 'status-active' : 'status-inactive'}">${c.active ? 'ACTIVE' : 'INACTIVE'}</span>
+    </div>
+  `).join('');
+}
+
+function renderClients() {
+  const el = document.getElementById('clients-list');
+  el.innerHTML = CONFIG.clients.map((c, i) => `
+    <div class="client-item">
+      <div class="client-dot" style="background:${c.accent_colour}"></div>
+      <div class="client-info">
+        <div class="client-name">${c.display_name}</div>
+        <div class="client-meta">${c.id} · ${c.folder} · ${c.vercel_url || 'No URL'}</div>
+      </div>
+      <span class="status-badge ${c.active ? 'status-active' : 'status-inactive'}">${c.active ? 'ACTIVE' : 'INACTIVE'}</span>
+      <div class="client-actions">
+        <button class="btn btn-sm" onclick="editClient(${i})">Edit</button>
+        <button class="btn btn-sm" onclick="toggleClientActive(${i})">${c.active ? 'Deactivate' : 'Activate'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteClient(${i})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCategories() {
+  const el = document.getElementById('categories-list');
+  el.innerHTML = CONFIG.categories.map((c, i) => `
+    <div class="cat-item">
+      <div class="cat-colour" style="background:${c.colour}"></div>
+      <div class="cat-name">${c.id}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-right:8px;">
+        <span style="font-size:11px;color:var(--text2)">Label:</span>
+        <input type="text" class="cat-label-input" value="${c.label}" onchange="updateCatLabel(${i}, this.value)">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-right:12px;">
+        <span style="font-size:11px;color:var(--text2)">Colour:</span>
+        <input type="color" class="colour-input" value="${c.colour}" onchange="updateCatColour(${i}, this.value)">
+      </div>
+      <button class="toggle ${c.visible ? 'on' : ''}" onclick="toggleCatVisible(${i})" title="${c.visible ? 'Visible' : 'Hidden'}"></button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCategory(${i})" style="margin-left:8px">×</button>
+    </div>
+  `).join('');
+}
+
+function renderAnomalies() {
+  const r = CONFIG.anomaly_rules;
+  document.getElementById('idle-streak').value = r.idle_streak_months;
+  document.getElementById('cat-drop').value = r.category_drop_percent;
+  const t = document.getElementById('toggle-newly-idle');
+  t.className = 'toggle' + (r.newly_idle_enabled ? ' on' : '');
+}
+
+function renderSettings() {
+  const p = CONFIG.platform;
+  const b = CONFIG.build_settings;
+  document.getElementById('platform-name').value = p.name;
+  document.getElementById('platform-version').value = p.version;
+  document.getElementById('summary-prefix').value = b.summary_prefix;
+  document.getElementById('trip-prefix').value = b.trip_prefix;
+  document.getElementById('output-dir').value = b.output_dir;
+  document.getElementById('dashboard-title').value = b.dashboard_title;
+}
+
+// ── CLIENT ACTIONS ──
+function openAddClient() {
+  editingClientIdx = -1;
+  document.getElementById('modal-client-title').textContent = 'Add New Client';
+  document.getElementById('client-id').value = '';
+  document.getElementById('client-display').value = '';
+  document.getElementById('client-fullname').value = '';
+  document.getElementById('client-colour').value = '#3b82f6';
+  document.getElementById('client-url').value = '';
+  document.getElementById('modal-client').classList.add('open');
+}
+
+function editClient(i) {
+  editingClientIdx = i;
+  const c = CONFIG.clients[i];
+  document.getElementById('modal-client-title').textContent = 'Edit Client';
+  document.getElementById('client-id').value = c.id;
+  document.getElementById('client-display').value = c.display_name;
+  document.getElementById('client-fullname').value = c.name;
+  document.getElementById('client-colour').value = c.accent_colour;
+  document.getElementById('client-url').value = c.vercel_url || '';
+  document.getElementById('modal-client').classList.add('open');
+}
+
+function saveClient() {
+  const id = document.getElementById('client-id').value.trim().toLowerCase();
+  const display = document.getElementById('client-display').value.trim();
+  const name = document.getElementById('client-fullname').value.trim();
+  const colour = document.getElementById('client-colour').value;
+  const url = document.getElementById('client-url').value.trim();
+
+  if (!id || !display) { showToast('Client ID and display name are required'); return; }
+
+  const clientObj = {
+    id, name: name || display, display_name: display,
+    folder: `clients/${id}`, output_file: 'index.html',
+    accent_colour: colour, logo: null, active: true,
+    vercel_url: url
+  };
+
+  if (editingClientIdx >= 0) {
+    CONFIG.clients[editingClientIdx] = { ...CONFIG.clients[editingClientIdx], ...clientObj };
+  } else {
+    CONFIG.clients.push(clientObj);
+  }
+
+  closeModal('modal-client');
+  markDirty();
+  renderClients();
+  renderOverview();
+  showToast(editingClientIdx >= 0 ? 'Client updated' : 'Client added');
+}
+
+function toggleClientActive(i) {
+  CONFIG.clients[i].active = !CONFIG.clients[i].active;
+  markDirty();
+  renderClients();
+  renderOverview();
+}
+
+function deleteClient(i) {
+  if (!confirm(`Delete client "${CONFIG.clients[i].display_name}"? This only removes it from config — files are untouched.`)) return;
+  CONFIG.clients.splice(i, 1);
+  markDirty();
+  renderClients();
+  renderOverview();
+}
+
+// ── CATEGORY ACTIONS ──
+function openAddCategory() {
+  document.getElementById('new-cat-id').value = '';
+  document.getElementById('new-cat-label').value = '';
+  document.getElementById('new-cat-colour').value = '#3b82f6';
+  document.getElementById('new-cat-visible').value = 'true';
+  document.getElementById('modal-category').classList.add('open');
+}
+
+function saveCategory() {
+  const id = document.getElementById('new-cat-id').value.trim().toUpperCase();
+  const label = document.getElementById('new-cat-label').value.trim() || id;
+  const colour = document.getElementById('new-cat-colour').value;
+  const visible = document.getElementById('new-cat-visible').value === 'true';
+
+  if (!id) { showToast('Category ID is required'); return; }
+  if (CONFIG.categories.find(c => c.id === id)) { showToast('Category already exists'); return; }
+
+  CONFIG.categories.push({ id, label, colour, visible });
+  closeModal('modal-category');
+  markDirty();
+  renderCategories();
+  showToast('Category added');
+}
+
+function updateCatLabel(i, val) { CONFIG.categories[i].label = val; markDirty(); }
+function updateCatColour(i, val) {
+  CONFIG.categories[i].colour = val;
+  document.querySelectorAll('.cat-colour')[i].style.background = val;
+  markDirty();
+}
+function toggleCatVisible(i) {
+  CONFIG.categories[i].visible = !CONFIG.categories[i].visible;
+  markDirty();
+  renderCategories();
+}
+function deleteCategory(i) {
+  if (!confirm(`Remove category "${CONFIG.categories[i].id}"?`)) return;
+  CONFIG.categories.splice(i, 1);
+  markDirty();
+  renderCategories();
+}
+
+// ── ANOMALY ACTIONS ──
+function toggleNewlyIdle() {
+  CONFIG.anomaly_rules.newly_idle_enabled = !CONFIG.anomaly_rules.newly_idle_enabled;
+  const t = document.getElementById('toggle-newly-idle');
+  t.className = 'toggle' + (CONFIG.anomaly_rules.newly_idle_enabled ? ' on' : '');
+  markDirty();
+}
+
+// ── SETTINGS SAVE ──
+function collectSettings() {
+  CONFIG.platform.name = document.getElementById('platform-name').value;
+  CONFIG.platform.version = document.getElementById('platform-version').value;
+  const newPwd = document.getElementById('admin-password').value;
+  if (newPwd) CONFIG.platform.admin_password = newPwd;
+  CONFIG.build_settings.summary_prefix = document.getElementById('summary-prefix').value;
+  CONFIG.build_settings.trip_prefix = document.getElementById('trip-prefix').value;
+  CONFIG.build_settings.output_dir = document.getElementById('output-dir').value;
+  CONFIG.build_settings.dashboard_title = document.getElementById('dashboard-title').value;
+  CONFIG.anomaly_rules.idle_streak_months = parseInt(document.getElementById('idle-streak').value);
+  CONFIG.anomaly_rules.category_drop_percent = parseInt(document.getElementById('cat-drop').value);
+}
+
+// ── DIRTY / SAVE ──
+function markDirty() {
+  isDirty = true;
+  document.getElementById('save-bar').classList.add('visible');
+}
+
+function discardChanges() {
+  CONFIG = JSON.parse(ORIGINAL);
+  isDirty = false;
+  document.getElementById('save-bar').classList.remove('visible');
+  renderAll();
+  showToast('Changes discarded');
+}
+
+function exportConfig() {
+  collectSettings();
+  const json = JSON.stringify(CONFIG, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'config.json'; a.click();
+  URL.revokeObjectURL(url);
+  ORIGINAL = json;
+  isDirty = false;
+  document.getElementById('save-bar').classList.remove('visible');
+  showToast('config.json exported — drop it in your project folder');
+}
+
+// ── MODAL ──
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── INIT ──
+loadConfig();
+</script>
+</body>
+</html>

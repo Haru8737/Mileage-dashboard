@@ -203,6 +203,8 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
   <button class="mode-btn active" id="btn-live" onclick="setMode('live')">📊 Live View</button>
   <span class="mode-sep">|</span>
   <button class="mode-btn" id="btn-snap" onclick="setMode('snapshot')">📅 Monthly Snapshots</button>
+  <span class="mode-sep">|</span>
+  <button class="mode-btn" id="btn-quarterly" onclick="setMode('quarterly')">📈 Quarterly / Annual</button>
 </div>
 
 <!-- Category Filter -->
@@ -214,6 +216,62 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
 <!-- Snapshot Month Selector -->
 <div class="snapshot-bar hidden" id="snapshot-bar">
   <span class="filter-label">Month:</span>
+</div>
+
+<!-- Quarterly Controls -->
+<div class="snapshot-bar hidden" id="quarterly-bar">
+  <span class="filter-label">Period:</span>
+  <button class="month-pill active" id="qp-quarterly" onclick="setQPeriod('quarterly')">Quarterly</button>
+  <button class="month-pill" id="qp-half" onclick="setQPeriod('half')">Half-Yearly</button>
+  <button class="month-pill" id="qp-annual" onclick="setQPeriod('annual')">Full Year</button>
+  <span style="margin-left:16px;color:var(--text3);font-size:12px">Compare:</span>
+  <select class="compare-select" id="quarterly-compare-select" onchange="renderQuarterly()" style="margin-left:6px">
+    <option value="">— No comparison —</option>
+  </select>
+</div>
+
+<!-- Quarterly Panel -->
+<div id="quarterly-content" style="display:none">
+  <div class="kpi-grid" id="q-kpi-grid">
+    <div class="kpi-card blue"><div class="kpi-label">Total Distance</div><div class="kpi-value" id="q-kpi-total">—</div><div class="kpi-sub" id="q-kpi-total-sub"></div><div class="kpi-delta hidden" id="q-kpi-total-delta"></div></div>
+    <div class="kpi-card cyan"><div class="kpi-label">Active Vehicles</div><div class="kpi-value" id="q-kpi-active">—</div><div class="kpi-sub" id="q-kpi-active-sub"></div></div>
+    <div class="kpi-card red"><div class="kpi-label">Idle Vehicles</div><div class="kpi-value" id="q-kpi-idle">—</div><div class="kpi-sub">zero km in period</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Fleet Utilization</div><div class="kpi-value" id="q-kpi-util">—</div><div class="kpi-sub">active / total vehicles</div><div class="kpi-delta hidden" id="q-kpi-util-delta"></div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Top Category</div><div class="kpi-value" id="q-kpi-top-cat" style="font-size:18px">—</div><div class="kpi-sub" id="q-kpi-top-cat-sub"></div></div>
+    <div class="kpi-card purple"><div class="kpi-label">Total Trips</div><div class="kpi-value" id="q-kpi-trips">—</div><div class="kpi-sub" id="q-kpi-trips-sub"></div><div class="kpi-delta hidden" id="q-kpi-trips-delta"></div></div>
+  </div>
+  <div class="chart-row-2">
+    <div class="panel">
+      <div class="panel-title">Period Comparison <span id="q-chart-sub" style="font-size:11px;color:var(--text3);font-weight:400"></span></div>
+      <div style="height:210px"><canvas id="chart-quarterly-bar"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top 10 Performers <span id="q-top10-sub" style="font-size:11px;color:var(--text3);font-weight:400"></span></div>
+      <div style="height:210px"><canvas id="chart-quarterly-top10"></canvas></div>
+    </div>
+  </div>
+  <div class="panel chart-full">
+    <div class="panel-title">Category Breakdown by Period <span id="q-stack-sub" style="font-size:11px;color:var(--text3);font-weight:400"></span></div>
+    <div style="height:220px"><canvas id="chart-quarterly-stack"></canvas></div>
+  </div>
+  <div class="panel chart-full">
+    <div class="panel-title">Vehicle Performance <span id="q-table-sub" style="font-size:11px;color:var(--text3);font-weight:400"></span></div>
+    <div class="table-controls">
+      <input class="search-input" id="q-search-input" placeholder="Search vehicle..." oninput="renderQuarterlyTable()">
+      <select class="sort-select" id="q-sort-select" onchange="renderQuarterlyTable()">
+        <option value="total-desc">Total km ↓</option>
+        <option value="total-asc">Total km ↑</option>
+        <option value="name-asc">Name A–Z</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table class="vehicle-table">
+        <thead id="q-table-head"></thead>
+        <tbody id="q-table-body"></tbody>
+      </table>
+    </div>
+    <div class="table-footer"><span id="q-table-footer"></span></div>
+  </div>
 </div>
 
 <!-- Anomaly Bar -->
@@ -433,12 +491,22 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
     mode = m;
     document.getElementById('btn-live').classList.toggle('active', m==='live');
     document.getElementById('btn-snap').classList.toggle('active', m==='snapshot');
-    document.getElementById('snapshot-bar').classList.toggle('hidden', m==='live');
-    document.getElementById('compare-bar').classList.toggle('hidden', m==='live');
+    document.getElementById('btn-quarterly').classList.toggle('active', m==='quarterly');
+    document.getElementById('snapshot-bar').classList.toggle('hidden', m!=='snapshot');
+    document.getElementById('quarterly-bar').classList.toggle('hidden', m!=='quarterly');
+    document.getElementById('compare-bar').classList.toggle('hidden', m!=='snapshot');
+    document.getElementById('main-content').style.display = m==='quarterly' ? 'none' : '';
+    document.getElementById('quarterly-content').style.display = m==='quarterly' ? '' : 'none';
     if (m==='snapshot' && !selectedMonth) {
       selectedMonth = RAW.months[RAW.months.length-1];
       document.querySelector(`[data-month="${selectedMonth}"]`)?.classList.add('active');
     }
+    if (m==='quarterly') {
+      document.getElementById('anomaly-bar').classList.add('hidden');
+      renderQuarterly(); 
+      return; 
+    }
+And
     render();
   }
 
@@ -493,7 +561,8 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
     compareMonth = document.getElementById('compare-select').value || null;
     document.getElementById('compare-badge').classList.toggle('hidden', !compareMonth);
     if (mode==='live') renderLive();
-    else renderSnapshot();
+    else if (mode==='snapshot') renderSnapshot();
+    else if (mode==='quarterly') renderQuarterly();
   }
 
   function renderLive() {
@@ -1023,53 +1092,68 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
         renderModalDaily(dvForMonth, displayMonth);
       }
     } else {
-      // Live View — 12-month trend line + yearly KPIs
+      // Live View — trip frequency bar chart + yearly KPIs
       const totalTrips = dvAll.reduce((s,v) => s+(v.trip_count||0), 0);
       const avgTripKm = totalTrips > 0
         ? (dvAll.reduce((s,v) => s+(v.avg_trip_km*(v.trip_count||0)), 0) / totalTrips).toFixed(2)
         : 0;
       const bestMonthEntry = Object.entries(mv.monthly).sort((a,b)=>b[1]-a[1])[0];
 
+      // Build trip count per month from dvAll entries
+      const tripsByMonth = {};
+      dvAll.forEach(v => {
+        const mo = Object.keys(v.days)[0]?.slice(0,7);
+        if (mo) tripsByMonth[mo] = (tripsByMonth[mo]||0) + (v.trip_count||0);
+      });
+      const tripFreqData = RAW.months.map(mo => tripsByMonth[mo]||0);
+      const hasTripData = tripFreqData.some(v => v > 0);
+
       dailySec.innerHTML = `
-        <div class="modal-section-title">12-Month Performance</div>
+        <div class="modal-section-title">Trip Frequency — 12 Months</div>
         <div class="daily-kpis" id="modal-daily-kpis">
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--success)">${totalTrips > 0 ? totalTrips.toLocaleString() : '—'}</div><div class="daily-kpi-lbl">Total Trips</div></div>
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--warning)">${avgTripKm > 0 ? avgTripKm+' km' : '—'}</div><div class="daily-kpi-lbl">Avg Trip km</div></div>
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent2)">${bestMonthEntry ? formatMonth(bestMonthEntry[0]) : '—'}</div><div class="daily-kpi-lbl">Best Month</div></div>
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent)">${bestMonthEntry ? formatKm(bestMonthEntry[1])+' km' : '—'}</div><div class="daily-kpi-lbl">Best Month km</div></div>
         </div>
-        <div style="height:150px"><canvas id="modal-daily-chart"></canvas></div>`;
+        ${hasTripData
+          ? `<div style="height:150px"><canvas id="modal-daily-chart"></canvas></div>`
+          : `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">No trip frequency data available — upload trip files to populate</div>`
+        }`;
 
-      setTimeout(() => {
-        const dctx = document.getElementById('modal-daily-chart')?.getContext('2d');
-        if (!dctx) return;
-        if (modalDailyChart) { modalDailyChart.destroy(); modalDailyChart = null; }
-        modalDailyChart = new Chart(dctx, {
-          type: 'line',
-          data: {
-            labels: RAW.months.map(formatMonth),
-            datasets: [{
-              data: RAW.months.map(mo => mv.monthly[mo]||0),
-              borderColor: catColor(mv.category),
-              backgroundColor: catColorA(mv.category, 0.08),
-              borderWidth: 2,
-              pointBackgroundColor: RAW.months.map(mo => (mv.monthly[mo]||0) > 0 ? catColor(mv.category) : '#374151'),
-              pointRadius: 3,
-              pointHoverRadius: 5,
-              tension: 0.3,
-              fill: true
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: {display:false}, tooltip: {callbacks: {label: c => c.raw > 0 ? ` ${formatKm(c.raw)} km` : ' No activity'}} },
-            scales: {
-              x: { grid: {display:false}, ticks: {color:'#4b5563', font:{size:9}, maxRotation:45, autoSkip:false} },
-              y: { grid: {color:'rgba(37,42,58,0.6)'}, ticks: {color:'#64748b', font:{size:9}, callback: v => formatKm(v)} }
+      if (hasTripData) {
+        setTimeout(() => {
+          const dctx = document.getElementById('modal-daily-chart')?.getContext('2d');
+          if (!dctx) return;
+          if (modalDailyChart) { modalDailyChart.destroy(); modalDailyChart = null; }
+          modalDailyChart = new Chart(dctx, {
+            type: 'line',
+            data: {
+              labels: RAW.months.map(formatMonth),
+              datasets: [{
+                label: 'Trips',
+                data: tripFreqData,
+                borderColor: catColor(mv.category),
+                backgroundColor: catColorA(mv.category, 0.08),
+                borderWidth: 2,
+                pointBackgroundColor: tripFreqData.map(v => v > 0 ? catColor(mv.category) : '#374151'),
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                tension: 0.3,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: {display:false}, tooltip: {callbacks: {label: c => c.raw > 0 ? ` ${c.raw.toLocaleString()} trips` : ' No trip data'}} },
+              scales: {
+                x: { grid: {display:false}, ticks: {color:'#4b5563', font:{size:9}, maxRotation:45, autoSkip:false} },
+                y: { grid: {color:'rgba(37,42,58,0.6)'}, ticks: {color:'#64748b', font:{size:9}, stepSize:1} }
+              }
             }
-          }
-        });
-      }, 50);
+          });
+        }, 50);
+      }
     }
 
     document.getElementById('modal-overlay').classList.add('open');
@@ -1119,6 +1203,257 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
     }, 50);
   }
 
+  // ── Quarterly / Annual Mode ──
+  let qPeriod = 'quarterly'; // 'quarterly' | 'half' | 'annual'
+  let quarterlyChartBar = null, quarterlyChartTop10 = null, quarterlyChartStack = null;
+
+  function setQPeriod(p) {
+    qPeriod = p;
+    ['quarterly','half','annual'].forEach(id => {
+      document.getElementById('qp-'+id).classList.toggle('active', id===p);
+    });
+    renderQuarterly();
+  }
+
+  function getQPeriods() {
+    const months = RAW.months; // 12 months
+    if (qPeriod === 'annual') {
+      return [{ label: 'Full Year', months: months }];
+    }
+    if (qPeriod === 'half') {
+      return [
+        { label: 'H1', months: months.slice(0,6) },
+        { label: 'H2', months: months.slice(6,12) }
+      ];
+    }
+    // quarterly
+    return [
+      { label: 'Q1', months: months.slice(0,3) },
+      { label: 'Q2', months: months.slice(3,6) },
+      { label: 'Q3', months: months.slice(6,9) },
+      { label: 'Q4', months: months.slice(9,12) }
+    ];
+  }
+
+  function getPeriodTotal(vehicle, months) {
+    return months.reduce((s,m) => s+(vehicle.monthly[m]||0), 0);
+  }
+
+  function renderQuarterly() {
+    const vehicles = getMonthlyVehicles();
+    const periods = getQPeriods();
+    const compareVal = document.getElementById('quarterly-compare-select').value;
+
+    // Populate compare dropdown
+    const sel = document.getElementById('quarterly-compare-select');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">— No comparison —</option>';
+    periods.forEach((p,i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = p.label;
+      sel.appendChild(opt);
+    });
+    if (currentVal) sel.value = currentVal;
+
+    // Use last period as selected by default
+    const selPeriodIdx = periods.length - 1;
+    const selPeriod = periods[selPeriodIdx];
+    const compPeriodIdx = sel.value !== '' ? parseInt(sel.value) : null;
+    const compPeriod = compPeriodIdx !== null ? periods[compPeriodIdx] : null;
+
+    // KPIs for selected period
+    const periodTotals = vehicles.map(v => getPeriodTotal(v, selPeriod.months));
+    const total = periodTotals.reduce((s,v)=>s+v,0);
+    const active = periodTotals.filter(v=>v>0).length;
+    const idle = periodTotals.filter(v=>v===0).length;
+    const util = vehicles.length ? Math.round(active/vehicles.length*100) : 0;
+    const catTotals = {};
+    vehicles.forEach((v,i) => { catTotals[v.category]=(catTotals[v.category]||0)+periodTotals[i]; });
+    const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
+    const trips = RAW.daily_vehicles
+      .filter(v => selectedCat==='ALL' || v.category===selectedCat)
+      .filter(v => selPeriod.months.some(m => Object.keys(v.days).some(d=>d.startsWith(m))))
+      .reduce((s,v)=>s+(v.trip_count||0),0);
+
+    // Compare KPIs
+    let compTotal = null;
+    if (compPeriod) {
+      compTotal = vehicles.reduce((s,v)=>s+getPeriodTotal(v,compPeriod.months),0);
+    }
+
+    // Update KPIs
+    document.getElementById('q-kpi-total').textContent = formatKm(total);
+    document.getElementById('q-kpi-total-sub').textContent = `km · ${selPeriod.label}`;
+    document.getElementById('q-kpi-active').textContent = `${active}/${vehicles.length}`;
+    document.getElementById('q-kpi-active-sub').textContent = selectedCat==='ALL' ? `of ${vehicles.length} total vehicles` : `of ${vehicles.length} ${selectedCat} vehicles`;
+    document.getElementById('q-kpi-idle').textContent = idle;
+    document.getElementById('q-kpi-util').textContent = util+'%';
+    document.getElementById('q-kpi-top-cat').textContent = selectedCat==='ALL' ? (topCat?topCat[0]:'—') : (trips>0?trips.toLocaleString():'—');
+    document.getElementById('q-kpi-top-cat-sub').textContent = selectedCat==='ALL' ? (topCat?formatKm(topCat[1])+' km':'') : (trips>0?`trips · ${selectedCat}`:'no trip data');
+    document.getElementById('q-kpi-trips').textContent = trips>0?trips.toLocaleString():'—';
+    document.getElementById('q-kpi-trips-sub').textContent = trips>0?`trips · ${selPeriod.label}`:'no trip data';
+
+    // Delta for total
+    const totalDeltaEl = document.getElementById('q-kpi-total-delta');
+    if (compTotal !== null) {
+      totalDeltaEl.innerHTML = deltaHtml(delta(total, compTotal));
+      totalDeltaEl.classList.remove('hidden');
+    } else { totalDeltaEl.classList.add('hidden'); }
+
+    document.getElementById('q-chart-sub').textContent = qPeriod === 'annual' ? 'Full Year' : qPeriod === 'half' ? 'H1 vs H2' : 'Q1 · Q2 · Q3 · Q4';
+    document.getElementById('q-top10-sub').textContent = selPeriod.label;
+    document.getElementById('q-stack-sub').textContent = selPeriod.label;
+    document.getElementById('q-table-sub').textContent = `${selPeriod.label} totals · click vehicle for details`;
+
+    setTimeout(() => {
+      renderQuarterlyBarChart(vehicles, periods, compPeriodIdx);
+      renderQuarterlyTop10(vehicles, selPeriod);
+      renderQuarterlyStackChart(vehicles, periods);
+      renderQuarterlyTable(vehicles, selPeriod);
+    }, 0);
+  }
+
+  function renderQuarterlyBarChart(vehicles, periods, compIdx) {
+    if (quarterlyChartBar) { quarterlyChartBar.destroy(); quarterlyChartBar=null; }
+    const ctx = document.getElementById('chart-quarterly-bar')?.getContext('2d');
+    if (!ctx) return;
+
+    const cats = [...new Set(vehicles.map(v=>v.category))].sort();
+    const colors = cats.map(c => catColor(c));
+    const colorsA = cats.map(c => catColorA(c, 0.7));
+
+    const datasets = periods.map((p, pi) => ({
+      label: p.label,
+      data: cats.map(cat => {
+        const catVehicles = vehicles.filter(v=>v.category===cat);
+        return catVehicles.reduce((s,v)=>s+getPeriodTotal(v,p.months),0);
+      }),
+      backgroundColor: periods.length === 1
+        ? colorsA
+        : `hsl(${pi * (360/periods.length)}, 60%, ${compIdx===pi?'65%':'45%'})`,
+      borderColor: periods.length === 1
+        ? colors
+        : `hsl(${pi * (360/periods.length)}, 70%, 55%)`,
+      borderWidth: 1,
+      borderRadius: 3
+    }));
+
+    // If only one period (annual), use category colours
+    const finalDatasets = periods.length === 1 ? [{
+      label: periods[0].label,
+      data: cats.map(cat => vehicles.filter(v=>v.category===cat).reduce((s,v)=>s+getPeriodTotal(v,periods[0].months),0)),
+      backgroundColor: colorsA,
+      borderColor: colors,
+      borderWidth: 1,
+      borderRadius: 3
+    }] : datasets;
+
+    quarterlyChartBar = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: cats, datasets: finalDatasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: periods.length > 1, labels: { color:'#94a3b8', font:{size:10} } },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${formatKm(c.raw)} km` } }
+        },
+        scales: {
+          x: { grid:{display:false}, ticks:{color:'#64748b',font:{size:10}} },
+          y: { grid:{color:'rgba(37,42,58,0.6)'}, ticks:{color:'#64748b',font:{size:9},callback:v=>formatKm(v)} }
+        }
+      }
+    });
+  }
+
+  function renderQuarterlyTop10(vehicles, period) {
+    if (quarterlyChartTop10) { quarterlyChartTop10.destroy(); quarterlyChartTop10=null; }
+    const ctx = document.getElementById('chart-quarterly-top10')?.getContext('2d');
+    if (!ctx) return;
+
+    const ranked = vehicles
+      .map(v => ({ label: v.vehicle.replace(/^[A-Z]+ - Menengai - /i,''), total: getPeriodTotal(v, period.months), cat: v.category }))
+      .filter(v=>v.total>0)
+      .sort((a,b)=>b.total-a.total)
+      .slice(0,10);
+
+    quarterlyChartTop10 = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ranked.map(v=>v.label),
+        datasets: [{ data: ranked.map(v=>v.total), backgroundColor: ranked.map(v=>catColorA(v.cat,0.7)), borderColor: ranked.map(v=>catColor(v.cat)), borderWidth:1, borderRadius:3 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>` ${formatKm(c.raw)} km`}} },
+        scales: {
+          x: { grid:{color:'rgba(37,42,58,0.6)'}, ticks:{color:'#64748b',font:{size:9},callback:v=>formatKm(v)} },
+          y: { grid:{display:false}, ticks:{color:'#94a3b8',font:{size:9}} }
+        }
+      }
+    });
+  }
+
+  function renderQuarterlyStackChart(vehicles, periods) {
+    if (quarterlyChartStack) { quarterlyChartStack.destroy(); quarterlyChartStack=null; }
+    const ctx = document.getElementById('chart-quarterly-stack')?.getContext('2d');
+    if (!ctx) return;
+
+    const cats = [...new Set(vehicles.map(v=>v.category))].sort();
+    const datasets = cats.map(cat => ({
+      label: cat,
+      data: periods.map(p => vehicles.filter(v=>v.category===cat).reduce((s,v)=>s+getPeriodTotal(v,p.months),0)),
+      backgroundColor: catColorA(cat, 0.7),
+      borderColor: catColor(cat),
+      borderWidth: 1
+    }));
+
+    quarterlyChartStack = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: periods.map(p=>p.label), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display:true, position:'bottom', labels:{color:'#94a3b8',font:{size:10},boxWidth:10} },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${formatKm(c.raw)} km` } }
+        },
+        scales: {
+          x: { stacked:true, grid:{display:false}, ticks:{color:'#64748b',font:{size:11}} },
+          y: { stacked:true, grid:{color:'rgba(37,42,58,0.6)'}, ticks:{color:'#64748b',font:{size:9},callback:v=>formatKm(v)} }
+        }
+      }
+    });
+  }
+
+  function renderQuarterlyTable(vehiclesArg, period) {
+    const vehicles = vehiclesArg || getMonthlyVehicles();
+    const p = period || getQPeriods()[getQPeriods().length-1];
+    const search = document.getElementById('q-search-input')?.value.toLowerCase()||'';
+    const sort = document.getElementById('q-sort-select')?.value||'total-desc';
+
+    let rows = vehicles.map(v => ({
+      vehicle: v.vehicle,
+      category: v.category,
+      total: getPeriodTotal(v, p.months)
+    })).filter(r => r.vehicle.toLowerCase().includes(search));
+
+    if (sort==='total-desc') rows.sort((a,b)=>b.total-a.total);
+    else if (sort==='total-asc') rows.sort((a,b)=>a.total-b.total);
+    else if (sort==='name-asc') rows.sort((a,b)=>a.vehicle.localeCompare(b.vehicle));
+
+    const shortName = n => n.replace(/^[A-Z]+ - Menengai - /i,'');
+    document.getElementById('q-table-head').innerHTML = `<tr><th>Vehicle</th><th>Category</th><th>Total km</th><th>Status</th></tr>`;
+    document.getElementById('q-table-body').innerHTML = rows.map(r => `
+      <tr>
+        <td>${shortName(r.vehicle)}</td>
+        <td><span class="cat-badge" style="background:${catColorA(r.category,0.15)};color:${catColor(r.category)}">${r.category}</span></td>
+        <td>${formatKm(r.total)}</td>
+        <td><span style="color:${r.total>0?'var(--success)':'var(--danger)'}">${r.total>0?'● Active':'● Idle'}</span></td>
+      </tr>`).join('');
+    document.getElementById('q-table-footer').textContent = `${rows.length} vehicles`;
+  }
+
   function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
   function closeModal() {
     document.getElementById('modal-overlay').classList.remove('open');
@@ -1126,7 +1461,22 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
     if (modalMonthlyChart) { modalMonthlyChart.destroy(); modalMonthlyChart=null; }
   }
 
-  document.addEventListener('DOMContentLoaded', () => render());
+  document.addEventListener('DOMContentLoaded', () => {
+
+    // === TRIP FILE km OVERRIDE ===
+    RAW.daily_vehicles.forEach(dv => {
+      const month = Object.keys(dv.days)[0]?.slice(0, 7);
+      if (!month) return;
+      const mv = RAW.monthly_vehicles.find(v => v.vehicle === dv.vehicle);
+      if (!mv) return;
+      const tripSum = Object.values(dv.days).reduce((s, km) => s + km, 0);
+      mv.monthly[month] = parseFloat(tripSum.toFixed(2));
+      mv.total = parseFloat(Object.values(mv.monthly).reduce((s, km) => s + km, 0).toFixed(2));
+    });
+    // === END OVERRIDE ===
+
+    render();
+  });
 
 </script>
 </body>

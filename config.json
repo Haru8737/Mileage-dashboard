@@ -1,0 +1,49 @@
+{
+  "platform": {
+    "name": "DataSphere Fleet Analytics",
+    "version": "2.0",
+    "admin_password": "Haru"
+  },
+
+  "clients": [
+    {
+      "id": "menengai",
+      "name": "Menengai",
+      "display_name": "Menengai Oil Refineries",
+      "folder": "clients/menengai",
+      "output_file": "index.html",
+      "accent_colour": "#3b82f6",
+      "logo": null,
+      "active": true,
+      "vercel_url": "https://mileage-dashboard-eight.vercel.app/"
+    }
+  ],
+
+  "categories": [
+    { "id": "CPO",     "label": "CPO",     "colour": "#3b82f6", "visible": true },
+    { "id": "VS",      "label": "VS",      "colour": "#06b6d4", "visible": true },
+    { "id": "FG",      "label": "FG",      "colour": "#10b981", "visible": true },
+    { "id": "CIVIL",   "label": "CIVIL",   "colour": "#f59e0b", "visible": true },
+    { "id": "ADMIN",   "label": "ADMIN",   "colour": "#8b5cf6", "visible": true },
+    { "id": "FARM",    "label": "FARM",    "colour": "#84cc16", "visible": true },
+    { "id": "LOGYARD", "label": "LOGYARD", "colour": "#f97316", "visible": true },
+    { "id": "RAIMDF",  "label": "RAIMDF",  "colour": "#ec4899", "visible": true },
+    { "id": "PLASTIC", "label": "PLASTIC", "colour": "#6366f1", "visible": true },
+    { "id": "SAFETY",  "label": "SAFETY",  "colour": "#ef4444", "visible": true },
+    { "id": "NAN",     "label": "NAN",     "colour": "#14b8a6", "visible": true },
+    { "id": "UNKNOWN", "label": "UNKNOWN", "colour": "#4b5563", "visible": false }
+  ],
+
+  "anomaly_rules": {
+    "idle_streak_months": 3,
+    "category_drop_percent": 20,
+    "newly_idle_enabled": true
+  },
+
+  "build_settings": {
+    "summary_prefix": "Summary",
+    "trip_prefix": "Trip",
+    "dashboard_title": "Fleet Dashboard",
+    "output_dir": "output"
+  }
+}

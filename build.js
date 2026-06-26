@@ -9,10 +9,14 @@ const path = require('path');
 const XLSX = require('xlsx');
 const http = require('http');
 
-const CLIENTS_DIR = path.join(__dirname, 'clients');
-const OUTPUT_DIR  = path.join(__dirname, 'output');
-const SUMMARY_PREFIX = 'Summary';
-const TRIP_PREFIX    = 'Trip';
+// Load config
+const CONFIG_PATH = path.join(__dirname, 'config.json');
+const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+
+const CLIENTS_DIR    = path.join(__dirname, 'clients');
+const OUTPUT_DIR     = path.join(__dirname, CONFIG.build_settings.output_dir);
+const SUMMARY_PREFIX = CONFIG.build_settings.summary_prefix;
+const TRIP_PREFIX    = CONFIG.build_settings.trip_prefix;
 
 function log(msg)  { console.log(`  ✔  ${msg}`); }
 function warn(msg) { console.warn(`  ⚠  ${msg}`); }
@@ -157,12 +161,22 @@ function readTrip(filePath) {
       tripStats[grouping].count++;
       tripStats[grouping].total += dist;
     });
-    Object.entries(tripStats).forEach(([vehicle, stats]) => {
-      if (dailyMap[vehicle]) {
-        dailyMap[vehicle].trip_count = stats.count;
-        dailyMap[vehicle].avg_trip_km = parseFloat((stats.total/stats.count).toFixed(2));
-      }
-    });
+
+    // FIXED — normalise whitespace before matching
+      const normalise = s => s.replace(/\s+/g, ' ').trim();
+      const normalisedMap = {};
+      Object.keys(dailyMap).forEach(k => { normalisedMap[normalise(k)] = k; });
+
+      Object.entries(tripStats).forEach(([vehicle, stats]) => {
+        const originalKey = normalisedMap[normalise(vehicle)];
+        if (originalKey && dailyMap[originalKey]) {
+          dailyMap[originalKey].trip_count = stats.count;
+          dailyMap[originalKey].avg_trip_km = parseFloat((stats.total/stats.count).toFixed(2));
+        } else {
+          log(`  ⚠ No utilization match for trip grouping: "${vehicle}"`);
+        }
+      });
+      
     log(`  → Trip stats loaded for ${Object.keys(tripStats).length} vehicles`);
   }
 
@@ -213,6 +227,7 @@ function detectAnomalies(monthlyVehicles, monthlyByCategory, allMonths) {
 
 // ── Build Data ──
 function buildData(clientName, summaryData, tripFiles) {
+  const normalise = s => String(s).replace(/\s+/g, ' ').trim();
   const vehicleMap = {};
   summaryData.forEach(({ vehicle, category, mileage, month }) => {
     if (!vehicleMap[vehicle]) vehicleMap[vehicle] = { vehicle, category, monthly:{}, total:0, trip_count:0, avg_trip_km:0 };
@@ -220,12 +235,26 @@ function buildData(clientName, summaryData, tripFiles) {
     vehicleMap[vehicle].total = parseFloat((vehicleMap[vehicle].total + mileage).toFixed(2));
   });
 
-  // Add trip stats to monthly vehicles
+  // Add trip stats to monthly vehicles, and add trip-only vehicles (e.g. RAIMDF) not in Summary
   tripFiles.forEach(({ vehicles }) => {
     vehicles.forEach(dv => {
-      if (vehicleMap[dv.vehicle] && dv.trip_count > 0) {
-        vehicleMap[dv.vehicle].trip_count = dv.trip_count;
-        vehicleMap[dv.vehicle].avg_trip_km = dv.avg_trip_km;
+      const matchKey = Object.keys(vehicleMap).find(k => normalise(k) === normalise(dv.vehicle));
+      if (matchKey) {
+        if (dv.trip_count > 0) {
+          vehicleMap[matchKey].trip_count = dv.trip_count;
+          vehicleMap[matchKey].avg_trip_km = dv.avg_trip_km;
+        }
+      } else {
+        // Vehicle exists in trip file but not in Summary — add as stub
+        warn(`Trip-only vehicle added: "${dv.vehicle}"`);
+        vehicleMap[dv.vehicle] = {
+          vehicle: dv.vehicle,
+          category: dv.category,
+          monthly: {},
+          total: 0,
+          trip_count: dv.trip_count,
+          avg_trip_km: dv.avg_trip_km
+        };
       }
     });
   });
@@ -366,7 +395,7 @@ if (process.argv.includes('--serve')) {
   const port = 3000;
   const server = http.createServer((req, res) => {
     const clientName = clientArg.charAt(0).toUpperCase() + clientArg.slice(1);
-    const filePath = path.join(OUTPUT_DIR, `${clientName}_Dashboard.html`);
+    const filePath = path.join(OUTPUT_DIR, `index.html`);
     fs.readFile(filePath, (err, data) => {
       if (err) { res.writeHead(404); res.end('Dashboard not built yet'); return; }
       res.writeHead(200, { 'Content-Type': 'text/html' });
