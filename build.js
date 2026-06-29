@@ -236,11 +236,13 @@ function buildData(clientName, summaryData, tripFiles) {
   });
 
   // Add trip stats to monthly vehicles, and add trip-only vehicles (e.g. RAIMDF) not in Summary
-  tripFiles.forEach(({ vehicles }) => {
+  tripFiles.forEach(({ month: tripMonth, vehicles }) => {
     vehicles.forEach(dv => {
       const matchKey = Object.keys(vehicleMap).find(k => normalise(k) === normalise(dv.vehicle));
       if (matchKey) {
+        if (!vehicleMap[matchKey].monthly_trips) vehicleMap[matchKey].monthly_trips = {};
         if (dv.trip_count > 0) {
+          vehicleMap[matchKey].monthly_trips[tripMonth] = dv.trip_count;
           vehicleMap[matchKey].trip_count = dv.trip_count;
           vehicleMap[matchKey].avg_trip_km = dv.avg_trip_km;
         }
@@ -248,13 +250,14 @@ function buildData(clientName, summaryData, tripFiles) {
         // Vehicle exists in trip file but not in Summary — add as stub
         warn(`Trip-only vehicle added: "${dv.vehicle}"`);
         vehicleMap[dv.vehicle] = {
-          vehicle: dv.vehicle,
-          category: dv.category,
-          monthly: {},
-          total: 0,
-          trip_count: dv.trip_count,
-          avg_trip_km: dv.avg_trip_km
-        };
+        vehicle: dv.vehicle,
+        category: dv.category,
+        monthly: {},
+        monthly_trips: { [tripMonth]: dv.trip_count },
+        total: 0,
+        trip_count: dv.trip_count,
+        avg_trip_km: dv.avg_trip_km
+      };
       }
     });
   });
@@ -360,12 +363,20 @@ function main() {
 
   const html = buildHTML(data, templatePath);
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  const outName = `${clientName}_Dashboard.html`;
+
+  const clientConfig = CONFIG.clients.find(c => c.id === clientArg);
+  const outName = clientConfig?.output_file || `${clientName}_Dashboard.html`;
   const outPath = path.join(OUTPUT_DIR, outName);
   fs.writeFileSync(outPath, html, 'utf8');
 
+  const namedCopy = `${clientName}_Dashboard.html`;
+  if (outName !== namedCopy) {
+    fs.writeFileSync(path.join(OUTPUT_DIR, namedCopy), html, 'utf8');
+  }
+
   console.log(`\n✅ Dashboard built!\n`);
   console.log(`   📄 Output: output\\${outName}`);
+  if (outName !== namedCopy) console.log(`   📄 Copy:   output\\${namedCopy}`);
   console.log(`   📦 Size:   ${(html.length/1024).toFixed(1)} KB\n`);
 }
 

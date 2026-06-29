@@ -919,7 +919,15 @@ And
       type:'line',
       data:{ labels, datasets:[{ label:'Idle vehicles', data, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.08)', borderWidth:2, pointBackgroundColor:'#ef4444', pointRadius:4, pointHoverRadius:6, tension:0.3, fill:true }] },
       options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} vehicles idle`}} },
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} vehicles idle · click to see which`}} },
+        onClick: (e, elements) => {
+          if (!elements.length) return;
+          const dayIdx = elements[0].index;
+          const day = days[dayIdx];
+          const idleVehicles = vehicles.filter(v => (v.days[day]||0) === 0);
+          renderIdleVehicleList(day, idleVehicles);
+        },
+
         scales:{ x:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10}}}, y:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},stepSize:1}} } }
     });
   }
@@ -942,9 +950,54 @@ And
       type:'line',
       data:{ labels, datasets:[{ label:'Idle vehicles', data, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.08)', borderWidth:2, pointBackgroundColor:'#ef4444', pointRadius:3, pointHoverRadius:5, tension:0.3, fill:true }] },
       options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} vehicles idle`}} },
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} vehicles idle · click to see which`}} },
+        onClick: (e, elements) => {
+          if (!elements.length) return;
+          const dayIdx = elements[0].index;
+          const day = days[dayIdx];
+          const idleVehicles = vehicles.filter(v => (v.days[day]||0) === 0);
+          renderIdleVehicleList(day, idleVehicles);
+        },
+
         scales:{ x:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},maxRotation:45,autoSkip:false}}, y:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},stepSize:1}} } }
     });
+      function renderIdleVehicleList(day, idleVehicles) {
+      const existing = document.getElementById('idle-vehicle-panel');
+      if (existing) existing.remove();
+
+      const dt = new Date(day + 'T00:00:00');
+      const label = dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+
+      const panel = document.createElement('div');
+      panel.id = 'idle-vehicle-panel';
+      panel.style.cssText = 'margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;';
+
+      const cats = {};
+      idleVehicles.forEach(v => {
+        if (!cats[v.category]) cats[v.category] = [];
+        cats[v.category].push(v.vehicle.replace(/^[A-Z]+ - Menengai - /i,''));
+      });
+
+      let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">
+          ${idleVehicles.length} vehicles idle — ${label}
+        </div>
+        <button onclick="document.getElementById('idle-vehicle-panel').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1">×</button>
+      </div>`;
+
+      Object.entries(cats).sort().forEach(([cat, names]) => {
+        const color = catColor(cat);
+        html += `<div style="margin-bottom:8px">
+          <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px;letter-spacing:0.5px">${cat} (${names.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${names.map(n=>`<span style="font-size:10px;padding:2px 8px;background:rgba(239,68,68,0.1);color:var(--danger);border-radius:4px;font-family:var(--mono)">${n}</span>`).join('')}
+          </div>
+        </div>`;
+      });
+
+      panel.innerHTML = html;
+      document.getElementById('idle-title').closest('.panel').appendChild(panel);
+    }
   }
 
   // ── Table ──
@@ -1092,20 +1145,14 @@ And
         renderModalDaily(dvForMonth, displayMonth);
       }
     } else {
-      // Live View — trip frequency bar chart + yearly KPIs
-      const totalTrips = dvAll.reduce((s,v) => s+(v.trip_count||0), 0);
+      // Live View — trip frequency line chart + yearly KPIs
+      const monthlyTrips = mv.monthly_trips || {};
+      const tripFreqData = RAW.months.map(mo => monthlyTrips[mo] || 0);
+      const totalTrips = Object.values(monthlyTrips).reduce((s, n) => s + n, 0);
       const avgTripKm = totalTrips > 0
         ? (dvAll.reduce((s,v) => s+(v.avg_trip_km*(v.trip_count||0)), 0) / totalTrips).toFixed(2)
         : 0;
-      const bestMonthEntry = Object.entries(mv.monthly).sort((a,b)=>b[1]-a[1])[0];
-
-      // Build trip count per month from dvAll entries
-      const tripsByMonth = {};
-      dvAll.forEach(v => {
-        const mo = Object.keys(v.days)[0]?.slice(0,7);
-        if (mo) tripsByMonth[mo] = (tripsByMonth[mo]||0) + (v.trip_count||0);
-      });
-      const tripFreqData = RAW.months.map(mo => tripsByMonth[mo]||0);
+      const bestTripMonth = Object.entries(monthlyTrips).sort((a, b) => b[1] - a[1])[0];
       const hasTripData = tripFreqData.some(v => v > 0);
 
       dailySec.innerHTML = `
@@ -1113,8 +1160,8 @@ And
         <div class="daily-kpis" id="modal-daily-kpis">
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--success)">${totalTrips > 0 ? totalTrips.toLocaleString() : '—'}</div><div class="daily-kpi-lbl">Total Trips</div></div>
           <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--warning)">${avgTripKm > 0 ? avgTripKm+' km' : '—'}</div><div class="daily-kpi-lbl">Avg Trip km</div></div>
-          <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent2)">${bestMonthEntry ? formatMonth(bestMonthEntry[0]) : '—'}</div><div class="daily-kpi-lbl">Best Month</div></div>
-          <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent)">${bestMonthEntry ? formatKm(bestMonthEntry[1])+' km' : '—'}</div><div class="daily-kpi-lbl">Best Month km</div></div>
+          <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent2)">${bestTripMonth ? formatMonth(bestTripMonth[0]) : '—'}</div><div class="daily-kpi-lbl">Best Month</div></div>
+          <div class="daily-kpi"><div class="daily-kpi-val" style="color:var(--accent)">${bestTripMonth ? bestTripMonth[1].toLocaleString()+' trips' : '—'}</div><div class="daily-kpi-lbl">Best Month Trips</div></div>
         </div>
         ${hasTripData
           ? `<div style="height:150px"><canvas id="modal-daily-chart"></canvas></div>`
