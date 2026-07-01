@@ -506,7 +506,6 @@ main { padding: 16px 24px 40px; max-width: 1600px; margin: 0 auto; }
       renderQuarterly(); 
       return; 
     }
-And
     render();
   }
 
@@ -922,10 +921,10 @@ And
         plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.raw} vehicles idle · click to see which`}} },
         onClick: (e, elements) => {
           if (!elements.length) return;
-          const dayIdx = elements[0].index;
-          const day = days[dayIdx];
-          const idleVehicles = vehicles.filter(v => (v.days[day]||0) === 0);
-          renderIdleVehicleList(day, idleVehicles);
+          const monthIdx = elements[0].index;
+          const m = RAW.months[monthIdx];
+          const idleVehicles = vehicles.filter(v => (v.monthly[m]||0) === 0);
+          renderIdleVehicleListMonthly(m, idleVehicles);
         },
 
         scales:{ x:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10}}}, y:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},stepSize:1}} } }
@@ -961,43 +960,79 @@ And
 
         scales:{ x:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},maxRotation:45,autoSkip:false}}, y:{grid:{color:'rgba(37,42,58,0.6)'},ticks:{color:'#64748b',font:{size:10},stepSize:1}} } }
     });
-      function renderIdleVehicleList(day, idleVehicles) {
-      const existing = document.getElementById('idle-vehicle-panel');
-      if (existing) existing.remove();
+  }
 
-      const dt = new Date(day + 'T00:00:00');
-      const label = dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+  function renderIdleVehicleList(day, idleVehicles) {
+    const existing = document.getElementById('idle-vehicle-panel');
+    if (existing) existing.remove();
 
-      const panel = document.createElement('div');
-      panel.id = 'idle-vehicle-panel';
-      panel.style.cssText = 'margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;';
+    const dt = new Date(day + 'T00:00:00');
+    const label = dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
 
-      const cats = {};
-      idleVehicles.forEach(v => {
-        if (!cats[v.category]) cats[v.category] = [];
-        cats[v.category].push(v.vehicle.replace(/^[A-Z]+ - Menengai - /i,''));
-      });
+    const panel = document.createElement('div');
+    panel.id = 'idle-vehicle-panel';
+    panel.style.cssText = 'margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;';
 
-      let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">
-          ${idleVehicles.length} vehicles idle — ${label}
+    const cats = {};
+    idleVehicles.forEach(v => {
+      if (!cats[v.category]) cats[v.category] = [];
+      cats[v.category].push(v.vehicle.replace(/^[A-Z]+ - Menengai - /i,''));
+    });
+
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">
+        ${idleVehicles.length} vehicles idle — ${label}
+      </div>
+      <button onclick="document.getElementById('idle-vehicle-panel').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1">×</button>
+    </div>`;
+
+    Object.entries(cats).sort().forEach(([cat, names]) => {
+      const color = catColor(cat);
+      html += `<div style="margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px;letter-spacing:0.5px">${cat} (${names.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${names.map(n=>`<span style="font-size:10px;padding:2px 8px;background:rgba(239,68,68,0.1);color:var(--danger);border-radius:4px;font-family:var(--mono)">${n}</span>`).join('')}
         </div>
-        <button onclick="document.getElementById('idle-vehicle-panel').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1">×</button>
       </div>`;
+    });
 
-      Object.entries(cats).sort().forEach(([cat, names]) => {
-        const color = catColor(cat);
-        html += `<div style="margin-bottom:8px">
-          <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px;letter-spacing:0.5px">${cat} (${names.length})</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${names.map(n=>`<span style="font-size:10px;padding:2px 8px;background:rgba(239,68,68,0.1);color:var(--danger);border-radius:4px;font-family:var(--mono)">${n}</span>`).join('')}
-          </div>
-        </div>`;
-      });
+    panel.innerHTML = html;
+    document.getElementById('idle-title').closest('.panel').appendChild(panel);
+  }
 
-      panel.innerHTML = html;
-      document.getElementById('idle-title').closest('.panel').appendChild(panel);
-    }
+  function renderIdleVehicleListMonthly(month, idleVehicles) {
+    const existing = document.getElementById('idle-vehicle-panel');
+    if (existing) existing.remove();
+
+    const panel = document.createElement('div');
+    panel.id = 'idle-vehicle-panel';
+    panel.style.cssText = 'margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;';
+
+    const cats = {};
+    idleVehicles.forEach(v => {
+      if (!cats[v.category]) cats[v.category] = [];
+      cats[v.category].push(v.vehicle.replace(/^[A-Z]+ - Menengai - /i,''));
+    });
+
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">
+        ${idleVehicles.length} vehicles idle — ${formatMonth(month)}
+      </div>
+      <button onclick="document.getElementById('idle-vehicle-panel').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1">×</button>
+    </div>`;
+
+    Object.entries(cats).sort().forEach(([cat, names]) => {
+      const color = catColor(cat);
+      html += `<div style="margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px;letter-spacing:0.5px">${cat} (${names.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${names.map(n=>`<span style="font-size:10px;padding:2px 8px;background:rgba(239,68,68,0.1);color:var(--danger);border-radius:4px;font-family:var(--mono)">${n}</span>`).join('')}
+        </div>
+      </div>`;
+    });
+
+    panel.innerHTML = html;
+    document.getElementById('idle-title').closest('.panel').appendChild(panel);
   }
 
   // ── Table ──
